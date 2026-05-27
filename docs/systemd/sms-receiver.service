@@ -1,0 +1,16 @@
+[Unit]
+Description=SMS Receiver (Docker Compose)
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# 改成你服务器上的实际项目路径
+WorkingDirectory=/home/ubuntu/SMSReciver
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=120
+
+[Install]
+WantedBy=multi-user.target
