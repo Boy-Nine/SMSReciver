@@ -4,7 +4,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "80:8080"
     environment:
       SMS_ADMIN_TOKEN: admin123
       SMS_HOST: 0.0.0.0
