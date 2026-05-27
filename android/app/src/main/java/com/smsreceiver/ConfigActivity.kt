@@ -7,9 +7,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.InputType
 import android.widget.Button
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -25,7 +29,6 @@ class ConfigActivity : AppCompatActivity() {
 
     private lateinit var serverUrlInput: TextInputEditText
     private lateinit var deviceNameInput: TextInputEditText
-    private lateinit var phoneNumberInput: TextInputEditText
     private lateinit var statusText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -35,12 +38,12 @@ class ConfigActivity : AppCompatActivity() {
         preferences = AppPreferences(this)
         serverUrlInput = findViewById(R.id.serverUrlInput)
         deviceNameInput = findViewById(R.id.deviceNameInput)
-        phoneNumberInput = findViewById(R.id.phoneNumberInput)
         statusText = findViewById(R.id.statusText)
 
-        serverUrlInput.setText(preferences.serverUrl)
+        serverUrlInput.setText(
+            preferences.serverUrl.ifBlank { getString(R.string.default_server_url) },
+        )
         deviceNameInput.setText(preferences.deviceName)
-        phoneNumberInput.setText(preferences.phoneNumber)
         updateStatusText()
 
         findViewById<Button>(R.id.testButton).setOnClickListener {
@@ -58,19 +61,16 @@ class ConfigActivity : AppCompatActivity() {
             if (!ensureSmsPermissions()) {
                 return@setOnClickListener
             }
-            requestBatteryOptimizationExemption()
-            SmsForwardService.start(this)
-            Toast.makeText(this, "转发服务已启动", Toast.LENGTH_SHORT).show()
-            updateStatusText()
+            showPhoneNumberDialog(startServiceAfterPhoneConfirmed = true, prefillPhoneNumber = true)
         }
 
         ensureSmsPermissions()
+        showPhoneNumberDialog(startServiceAfterPhoneConfirmed = false, prefillPhoneNumber = false)
     }
 
     private fun saveInputs() {
         preferences.serverUrl = serverUrlInput.text?.toString().orEmpty()
         preferences.deviceName = deviceNameInput.text?.toString().orEmpty()
-        preferences.phoneNumber = phoneNumberInput.text?.toString().orEmpty()
     }
 
     private fun testConnection() {
@@ -134,9 +134,60 @@ class ConfigActivity : AppCompatActivity() {
         val lines = mutableListOf<String>()
         lines.add("服务器: ${preferences.serverUrl.ifBlank { "未设置" }}")
         lines.add("设备名: ${preferences.deviceName.ifBlank { "未设置" }}")
+        lines.add("手机号: ${preferences.phoneNumber.ifBlank { "未设置" }}")
         lines.add("Device ID: ${preferences.deviceId.ifBlank { "未注册" }}")
         lines.add("API Key: ${maskSecret(preferences.apiKey)}")
         statusText.text = lines.joinToString(separator = "\n")
+    }
+
+    private fun showPhoneNumberDialog(
+        startServiceAfterPhoneConfirmed: Boolean,
+        prefillPhoneNumber: Boolean,
+    ) {
+        val input = EditText(this).apply {
+            if (prefillPhoneNumber) {
+                setText(preferences.phoneNumber)
+            }
+            hint = getString(R.string.phone_number_hint)
+            inputType = InputType.TYPE_CLASS_TEXT
+            minLines = 2
+        }
+        val container = FrameLayout(this).apply {
+            val padding = (20 * resources.displayMetrics.density).toInt()
+            setPadding(padding, padding / 2, padding, 0)
+            addView(input)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.phone_dialog_title)
+            .setMessage(R.string.phone_dialog_message)
+            .setView(container)
+            .setPositiveButton(R.string.phone_dialog_confirm, null)
+            .setNegativeButton(R.string.phone_dialog_cancel, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
+                val phoneNumber = input.text?.toString()?.trim().orEmpty()
+
+                preferences.phoneNumber = phoneNumber
+                updateStatusText()
+                dialog.dismiss()
+
+                if (startServiceAfterPhoneConfirmed) {
+                    startForwardService()
+                }
+            }
+        }
+
+        dialog.show()
+    }
+
+    private fun startForwardService() {
+        requestBatteryOptimizationExemption()
+        SmsForwardService.start(this)
+        Toast.makeText(this, "转发服务已启动", Toast.LENGTH_SHORT).show()
+        updateStatusText()
     }
 
     private fun maskSecret(value: String): String {

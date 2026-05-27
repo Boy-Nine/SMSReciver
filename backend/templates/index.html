@@ -4,13 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>验证码接收后台</title>
+    {% include "_head_icons.html" %}
     <link rel="stylesheet" href="/sms/static/style.css">
 </head>
 <body>
     <header class="header">
-        <div>
+        <div class="brand">
+            <img class="site-icon" src="/sms/static/favicon.png" alt="">
+            <div>
             <h1>验证码接收后台</h1>
             <p class="subtitle">局域网短信汇总 · 共 {{ total_messages }} 条</p>
+            </div>
         </div>
         <div class="header-actions">
             <input id="keyword" type="search" placeholder="搜索短信内容/发件人/验证码">

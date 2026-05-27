@@ -1,8 +1,13 @@
 <resources>
     <string name="app_name">验证码转发</string>
-    <string name="server_url_hint">http://192.168.1.100:8080</string>
-    <string name="device_name_hint">备用机</string>
-    <string name="phone_number_hint">13800138000</string>
+    <string name="server_url_hint">https://makemoneies.top</string>
+    <string name="default_server_url">https://makemoneies.top</string>
+    <string name="device_name_hint">设备名称</string>
+    <string name="phone_number_hint">请输入手机号，多个用逗号分隔</string>
+    <string name="phone_dialog_title">输入手机号</string>
+    <string name="phone_dialog_message">双卡可填写两个号码，用逗号或空格分隔，也可留空。</string>
+    <string name="phone_dialog_confirm">确认</string>
+    <string name="phone_dialog_cancel">取消</string>
     <string name="service_notification_title">验证码转发运行中</string>
     <string name="service_notification_text">正在监听短信并上报到后台</string>
     <string name="service_channel_name">短信转发</string>

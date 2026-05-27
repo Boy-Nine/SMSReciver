@@ -29,6 +29,36 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.site-icon {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+}
+
+.login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.login-brand .site-icon {
+    width: 52px;
+    height: 52px;
+}
+
+.login-brand h1 {
+    margin: 0;
+    text-align: center;
+}
+
 .header h1 {
     margin: 0 0 8px;
     font-size: 28px;
@@ -171,6 +201,11 @@ th {
 .login-panel h1 {
     margin: 0 0 8px;
     font-size: 1.5rem;
+}
+
+.login-panel > .subtitle {
+    margin: 0 0 8px;
+    text-align: center;
 }
 
 .login-panel form {

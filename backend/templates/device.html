@@ -4,17 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ device.device_name }} - 短信详情</title>
+    {% include "_head_icons.html" %}
     <link rel="stylesheet" href="/sms/static/style.css">
 </head>
 <body>
     <header class="header">
-        <div>
+        <div class="brand">
+            <img class="site-icon" src="/sms/static/favicon.png" alt="">
+            <div>
             <a class="back-link" href="/sms/">← 返回总览</a>
             <h1>{{ device.device_name }}</h1>
             <p class="subtitle">
                 {% if device.phone_number %}{{ device.phone_number }} · {% endif %}
                 共 {{ total_messages }} 条短信
             </p>
+            </div>
         </div>
         <div class="header-actions">
             <input id="keyword" type="search" placeholder="搜索短信" value="{{ keyword }}">
