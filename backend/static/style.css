@@ -159,6 +159,57 @@ th {
     color: var(--muted);
 }
 
+.login-panel {
+    max-width: 400px;
+    margin: 80px auto;
+    padding: 32px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.login-panel h1 {
+    margin: 0 0 8px;
+    font-size: 1.5rem;
+}
+
+.login-panel form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.login-panel label {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.login-panel input[type="password"] {
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.login-panel button[type="submit"] {
+    padding: 10px 16px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.login-error {
+    color: #b91c1c;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
     .header {
         flex-direction: column;

@@ -19,13 +19,13 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8080
 ```
 
-浏览器访问：
+浏览器访问（首次打开会进入登录页）：
 
 ```text
-http://<你的局域网IP>:8080/?admin_token=admin123
+http://<你的局域网IP>:8080/sms/
 ```
 
-默认管理口令可通过环境变量修改：
+登录口令为环境变量 `SMS_ADMIN_TOKEN`（默认 `admin123`），登录后写入 Cookie `sms`，URL 不再携带口令参数。
 
 ```bash
 export SMS_ADMIN_TOKEN=your-secret
@@ -56,8 +56,10 @@ chmod +x scripts/integration_test.sh
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/devices/register` | 注册设备 |
 | POST | `/api/sms/inbound` | 手机端上报短信 |
-| GET | `/api/sms?admin_token=...` | 查询短信 |
-| GET | `/api/devices?admin_token=...` | 查询设备 |
+| GET | `/api/sms` | 查询短信（需 Cookie `sms` 或请求头 `X-Sms-Token`） |
+| GET | `/api/devices` | 查询设备（同上） |
+| GET | `/sms/` | Web 管理页（登录后） |
+| POST | `/sms/login` | 登录并设置 Cookie |
 
 ## 环境变量
 

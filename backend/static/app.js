@@ -6,7 +6,6 @@
 
     function buildApiUrl(path) {
         const url = new URL(path, window.location.origin);
-        url.searchParams.set("admin_token", config.adminToken || "");
         if (config.deviceId) {
             url.searchParams.set("device_id", config.deviceId);
         }
@@ -78,10 +77,13 @@
 
     async function refreshMessages() {
         const response = await fetch(buildApiUrl("/api/sms"), {
-            headers: {
-                "X-Admin-Token": config.adminToken || ""
-            }
+            credentials: "same-origin",
         });
+
+        if (response.status === 401) {
+            window.location.href = "/sms/login?next=" + encodeURIComponent(window.location.pathname);
+            return;
+        }
 
         if (!response.ok) {
             return;

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>验证码接收后台</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/sms/static/style.css">
 </head>
 <body>
     <header class="header">
@@ -15,6 +15,9 @@
         <div class="header-actions">
             <input id="keyword" type="search" placeholder="搜索短信内容/发件人/验证码">
             <button id="refresh-btn" type="button">刷新</button>
+            <form method="post" action="/sms/logout" style="display:inline">
+                <button type="submit">退出</button>
+            </form>
         </div>
     </header>
 
@@ -22,7 +25,7 @@
         <h2>设备列表</h2>
         <div class="device-grid">
             {% for device in devices %}
-            <a class="device-card" href="/device/{{ device.device_id }}?admin_token={{ admin_token }}">
+            <a class="device-card" href="/sms/device/{{ device.device_id }}">
                 <div class="device-title">{{ device.device_name }}</div>
                 <div class="device-meta">
                     {% if device.phone_number %}
@@ -88,10 +91,9 @@
 
     <script>
         window.SMS_CONFIG = {
-            adminToken: "{{ admin_token }}",
             autoRefreshMs: 30000
         };
     </script>
-    <script src="/static/app.js"></script>
+    <script src="/sms/static/app.js"></script>
 </body>
 </html>
