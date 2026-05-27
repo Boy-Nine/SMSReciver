@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>验证码接收后台</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="header">
+        <div>
+            <h1>验证码接收后台</h1>
+            <p class="subtitle">局域网短信汇总 · 共 {{ total_messages }} 条</p>
+        </div>
+        <div class="header-actions">
+            <input id="keyword" type="search" placeholder="搜索短信内容/发件人/验证码">
+            <button id="refresh-btn" type="button">刷新</button>
+        </div>
+    </header>
+
+    <section class="section">
+        <h2>设备列表</h2>
+        <div class="device-grid">
+            {% for device in devices %}
+            <a class="device-card" href="/device/{{ device.device_id }}?admin_token={{ admin_token }}">
+                <div class="device-title">{{ device.device_name }}</div>
+                <div class="device-meta">
+                    {% if device.phone_number %}
+                    <span>{{ device.phone_number }}</span>
+                    {% else %}
+                    <span>未上报手机号</span>
+                    {% endif %}
+                    {% if device.last_seen_at %}
+                    <span>最近活跃: {{ device.last_seen_at }}</span>
+                    {% endif %}
+                </div>
+                {% if device.latest_sms_preview %}
+                <div class="device-preview">{{ device.latest_sms_preview }}</div>
+                {% else %}
+                <div class="device-preview muted">暂无短信</div>
+                {% endif %}
+            </a>
+            {% else %}
+            <div class="empty">暂无设备，请先在 Android 端注册。</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>全部短信</h2>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>设备</th>
+                        <th>发件人</th>
+                        <th>验证码</th>
+                        <th>内容</th>
+                        <th>收到时间</th>
+                    </tr>
+                </thead>
+                <tbody id="sms-table-body">
+                    {% for msg in messages %}
+                    <tr>
+                        <td>{{ msg.device_name or msg.device_id[:8] }}</td>
+                        <td>{{ msg.sender }}</td>
+                        <td>
+                            {% if msg.verification_code %}
+                            <button class="code-btn" data-code="{{ msg.verification_code }}" type="button">
+                                {{ msg.verification_code }}
+                            </button>
+                            {% else %}
+                            <span class="muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="body-cell">{{ msg.body }}</td>
+                        <td>{{ msg.received_at }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="empty">暂无短信</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <script>
+        window.SMS_CONFIG = {
+            adminToken: "{{ admin_token }}",
+            autoRefreshMs: 30000
+        };
+    </script>
+    <script src="/static/app.js"></script>
+</body>
+</html>

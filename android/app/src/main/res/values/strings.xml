@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">验证码转发</string>
+    <string name="server_url_hint">http://192.168.1.100:8080</string>
+    <string name="device_name_hint">备用机</string>
+    <string name="phone_number_hint">13800138000</string>
+    <string name="service_notification_title">验证码转发运行中</string>
+    <string name="service_notification_text">正在监听短信并上报到后台</string>
+    <string name="service_channel_name">短信转发</string>
+</resources>
