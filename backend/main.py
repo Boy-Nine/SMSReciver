@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from auth import SMS_COOKIE_NAME, is_admin_authenticated, verify_admin
-from config import ADMIN_TOKEN, BASE_DIR
+from config import ADMIN_TOKEN, BASE_DIR, SMS_PREFIX
 from database import get_connection, init_db
 from models import DeviceSummary
 from routers import devices, sms
@@ -15,6 +15,7 @@ from services.sms_service import fetch_sms_messages
 app = FastAPI(title="SMS Receiver", version="1.0.0")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["display_datetime"] = format_display_datetime
+templates.env.globals["sms_prefix"] = SMS_PREFIX
 
 app.mount("/sms/static", StaticFiles(directory=str(BASE_DIR / "static")), name="sms-static")
 app.include_router(devices.router)
@@ -35,9 +36,9 @@ def health() -> dict[str, str]:
 
 def redirect_to_login(request: Request, next_path: str | None = None) -> RedirectResponse:
     target = next_path or request.url.path
-    if not target.startswith("/sms"):
-        target = "/sms/"
-    return RedirectResponse(url=f"/sms/login?next={target}", status_code=302)
+    if not target.startswith(SMS_PREFIX):
+        target = f"{SMS_PREFIX}/"
+    return RedirectResponse(url=f"{SMS_PREFIX}/login?next={target}", status_code=302)
 
 
 @app.get("/")
@@ -80,7 +81,7 @@ def login_submit(
             status_code=401,
         )
 
-    safe_next = next if next.startswith("/sms") else "/sms/"
+    safe_next = next if next.startswith(SMS_PREFIX) else f"{SMS_PREFIX}/"
     response = RedirectResponse(url=safe_next, status_code=302)
     response.set_cookie(
         key=SMS_COOKIE_NAME,
@@ -88,15 +89,15 @@ def login_submit(
         httponly=True,
         samesite="lax",
         max_age=SMS_COOKIE_MAX_AGE,
-        path="/",
+        path=SMS_PREFIX,
     )
     return response
 
 
-@app.post("/sms/logout")
+@app.post(f"{SMS_PREFIX}/logout")
 def logout() -> RedirectResponse:
-    response = RedirectResponse(url="/sms/login", status_code=302)
-    response.delete_cookie(key=SMS_COOKIE_NAME, path="/")
+    response = RedirectResponse(url=f"{SMS_PREFIX}/login", status_code=302)
+    response.delete_cookie(key=SMS_COOKIE_NAME, path=SMS_PREFIX)
     return response
 
 

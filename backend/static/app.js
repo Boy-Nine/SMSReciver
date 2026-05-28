@@ -3,9 +3,16 @@
     const keywordInput = document.getElementById("keyword");
     const refreshBtn = document.getElementById("refresh-btn");
     const tableBody = document.getElementById("sms-table-body");
+    const deviceGrid = document.getElementById("device-grid");
+    const SMS_BASE = (config.basePath || "/sms").replace(/\/$/, "");
+
+    function smsPath(path) {
+        const normalized = path.startsWith("/") ? path : "/" + path;
+        return SMS_BASE + normalized;
+    }
 
     function buildApiUrl(path) {
-        const url = new URL(path, window.location.origin);
+        const url = new URL(smsPath(path), window.location.origin);
         if (config.deviceId) {
             url.searchParams.set("device_id", config.deviceId);
         }
@@ -13,6 +20,11 @@
             url.searchParams.set("keyword", keywordInput.value.trim());
         }
         return url.toString();
+    }
+
+    function redirectToLogin() {
+        window.location.href =
+            smsPath("/login") + "?next=" + encodeURIComponent(window.location.pathname);
     }
 
     function formatDisplayDatetime(value) {
@@ -105,12 +117,12 @@
     }
 
     async function refreshMessages() {
-        const response = await fetch(buildApiUrl("/sms/api/sms"), {
+        const response = await fetch(buildApiUrl("/api/sms"), {
             credentials: "same-origin",
         });
 
         if (response.status === 401) {
-            window.location.href = "/sms/login?next=" + encodeURIComponent(window.location.pathname);
+            redirectToLogin();
             return;
         }
 
@@ -145,56 +157,173 @@
 
     bindCopyButtons();
 
-    function bindDeviceDeleteButtons() {
-        document.querySelectorAll(".device-delete-btn").forEach(function (button) {
-            button.addEventListener("click", async function (event) {
-                event.preventDefault();
-                event.stopPropagation();
+    const confirmOverlay = document.getElementById("confirm-overlay");
+    const confirmMessage = document.getElementById("confirm-message");
+    const confirmCancelBtn = document.getElementById("confirm-cancel");
+    const confirmOkBtn = document.getElementById("confirm-ok");
+    let confirmResolve = null;
 
-                const deviceId = button.getAttribute("data-device-id");
-                const deviceName = button.getAttribute("data-device-name") || deviceId;
-                if (!deviceId) {
-                    return;
-                }
-
-                const confirmed = window.confirm(
-                    "确定删除设备「" + deviceName + "」及其全部短信吗？",
-                );
-                if (!confirmed) {
-                    return;
-                }
-
-                const response = await fetch("/sms/api/devices/" + encodeURIComponent(deviceId), {
-                    method: "DELETE",
-                    credentials: "same-origin",
-                });
-
-                if (response.status === 401) {
-                    window.location.href = "/sms/login?next=" + encodeURIComponent(window.location.pathname);
-                    return;
-                }
-
-                if (!response.ok) {
-                    window.alert("删除失败，请稍后重试");
-                    return;
-                }
-
-                const card = button.closest(".device-card");
-                if (card) {
-                    card.remove();
-                }
-
-                const deviceGrid = document.getElementById("device-grid");
-                if (deviceGrid && !deviceGrid.querySelector(".device-card")) {
-                    deviceGrid.innerHTML = '<div class="empty">暂无设备，请先在 Android 端注册。</div>';
-                }
-
-                refreshMessages();
-            });
+    function closeAllDeviceMenus() {
+        document.querySelectorAll(".device-menu-panel").forEach(function (panel) {
+            panel.hidden = true;
+        });
+        document.querySelectorAll(".device-menu-trigger").forEach(function (trigger) {
+            trigger.setAttribute("aria-expanded", "false");
         });
     }
 
-    bindDeviceDeleteButtons();
+    function toggleDeviceMenu(trigger) {
+        const menuRoot = trigger.closest(".device-card-menu");
+        if (!menuRoot) {
+            return;
+        }
+
+        const panel = menuRoot.querySelector(".device-menu-panel");
+        if (!panel) {
+            return;
+        }
+
+        const willOpen = panel.hidden;
+        closeAllDeviceMenus();
+        panel.hidden = !willOpen;
+        trigger.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    }
+
+    function openConfirmDialog(message) {
+        if (!confirmOverlay || !confirmMessage) {
+            return Promise.resolve(window.confirm(message));
+        }
+
+        confirmMessage.textContent = message;
+        confirmOverlay.hidden = false;
+        confirmOverlay.setAttribute("aria-hidden", "false");
+        confirmOverlay.classList.add("is-visible");
+
+        return new Promise(function (resolve) {
+            confirmResolve = resolve;
+        });
+    }
+
+    function closeConfirmDialog(result) {
+        if (confirmOverlay) {
+            confirmOverlay.hidden = true;
+            confirmOverlay.setAttribute("aria-hidden", "true");
+            confirmOverlay.classList.remove("is-visible");
+        }
+        if (typeof confirmResolve === "function") {
+            confirmResolve(result);
+            confirmResolve = null;
+        }
+    }
+
+    if (confirmCancelBtn) {
+        confirmCancelBtn.addEventListener("click", function () {
+            closeConfirmDialog(false);
+        });
+    }
+
+    if (confirmOkBtn) {
+        confirmOkBtn.addEventListener("click", function () {
+            closeConfirmDialog(true);
+        });
+    }
+
+    if (confirmOverlay) {
+        confirmOverlay.addEventListener("click", function (event) {
+            if (event.target === confirmOverlay) {
+                closeConfirmDialog(false);
+            }
+        });
+    }
+
+    document.addEventListener("keydown", function (event) {
+        if (event.key !== "Escape") {
+            return;
+        }
+
+        if (confirmOverlay && confirmOverlay.classList.contains("is-visible")) {
+            closeConfirmDialog(false);
+            return;
+        }
+
+        closeAllDeviceMenus();
+    });
+
+    document.addEventListener("mousedown", function (event) {
+        if (event.target.closest(".device-card-menu")) {
+            return;
+        }
+        closeAllDeviceMenus();
+    });
+
+    async function deleteDevice(button) {
+        const deviceId = button.getAttribute("data-device-id");
+        const deviceName = button.getAttribute("data-device-name") || deviceId;
+        if (!deviceId) {
+            return;
+        }
+
+        closeAllDeviceMenus();
+
+        const confirmed = await openConfirmDialog(
+            "将移除设备「" + deviceName + "」及其全部短信记录，此操作不可恢复。"
+        );
+        if (!confirmed) {
+            return;
+        }
+
+        const response = await fetch(smsPath("/api/devices/" + encodeURIComponent(deviceId)), {
+            method: "DELETE",
+            credentials: "same-origin",
+        });
+
+        if (response.status === 401) {
+            redirectToLogin();
+            return;
+        }
+
+        if (!response.ok) {
+            window.alert("删除失败，请稍后重试");
+            return;
+        }
+
+        const card = button.closest(".device-card");
+        if (card) {
+            card.style.transition = "opacity 0.2s ease, transform 0.2s ease";
+            card.style.opacity = "0";
+            card.style.transform = "scale(0.98)";
+            setTimeout(function () {
+                card.remove();
+            }, 180);
+        }
+
+        if (deviceGrid && !deviceGrid.querySelector(".device-card")) {
+            deviceGrid.innerHTML = '<div class="empty">暂无设备，请先在 Android 端注册。</div>';
+        }
+
+        refreshMessages();
+    }
+
+    if (deviceGrid) {
+        deviceGrid.addEventListener("click", function (event) {
+            const deleteBtn = event.target.closest(".device-delete-btn");
+            if (deleteBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                deleteDevice(deleteBtn);
+                return;
+            }
+
+            const trigger = event.target.closest(".device-menu-trigger");
+            if (!trigger) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopPropagation();
+            toggleDeviceMenu(trigger);
+        });
+    }
 
     if (config.autoRefreshMs) {
         setInterval(refreshMessages, config.autoRefreshMs);
