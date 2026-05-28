@@ -145,7 +145,9 @@ def device_page(
                 device_id=device_row["device_id"],
                 device_name=device_row["device_name"],
                 phone_number=device_row["phone_number"],
-                last_seen_at=device_row["last_seen_at"],
+                last_seen_at=format_display_datetime(device_row["last_seen_at"])
+                if device_row["last_seen_at"]
+                else None,
             ),
             "messages": sms_rows.items,
             "total_messages": sms_rows.total,

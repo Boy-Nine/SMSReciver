@@ -1,5 +1,6 @@
 from database import get_connection
 from models import DeviceSummary
+from services.datetime_format import format_display_datetime
 
 
 def fetch_devices() -> list[DeviceSummary]:
@@ -29,9 +30,13 @@ def fetch_devices() -> list[DeviceSummary]:
             device_id=row["device_id"],
             device_name=row["device_name"],
             phone_number=row["phone_number"],
-            last_seen_at=row["last_seen_at"],
+            last_seen_at=format_display_datetime(row["last_seen_at"])
+            if row["last_seen_at"]
+            else None,
             latest_sms_preview=row["latest_sms_preview"],
-            latest_sms_at=row["latest_sms_at"],
+            latest_sms_at=format_display_datetime(row["latest_sms_at"])
+            if row["latest_sms_at"]
+            else None,
         )
         for row in rows
     ]

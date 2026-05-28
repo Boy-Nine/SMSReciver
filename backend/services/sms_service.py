@@ -1,5 +1,6 @@
 from database import get_connection
 from models import SmsListResponse, SmsMessageItem
+from services.datetime_format import format_display_datetime
 
 
 def fetch_sms_messages(
@@ -55,8 +56,8 @@ def fetch_sms_messages(
             device_name=row["device_name"],
             sender=row["sender"],
             body=row["body"],
-            received_at=row["received_at"],
-            created_at=row["created_at"],
+            received_at=format_display_datetime(row["received_at"]),
+            created_at=format_display_datetime(row["created_at"]),
             verification_code=row["verification_code"],
         )
         for row in rows
