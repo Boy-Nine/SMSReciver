@@ -106,7 +106,7 @@ def index(request: Request) -> HTMLResponse:
     if not is_admin_authenticated(request):
         return redirect_to_login(request)
     device_rows = fetch_devices()
-    sms_rows = fetch_sms_messages(limit=50, offset=0)
+    sms_rows = fetch_sms_messages(limit=10, offset=0)
 
     return templates.TemplateResponse(
         request,
@@ -136,7 +136,7 @@ def device_page(
     if not device_row:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    sms_rows = fetch_sms_messages(device_id=device_id, keyword=keyword, limit=100, offset=0)
+    sms_rows = fetch_sms_messages(device_id=device_id, keyword=keyword, limit=10, offset=0)
 
     return templates.TemplateResponse(
         request,

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>验证码接收后台</title>
     {% include "_head_icons.html" %}
-    <link rel="stylesheet" href="/sms/static/style.css?v=3">
+    <link rel="stylesheet" href="/sms/static/style.css?v=4">
 </head>
 <body>
     <header class="header">
@@ -98,14 +98,33 @@
                 </tbody>
             </table>
         </div>
+        <div class="pagination-bar" id="sms-pagination">
+            <div class="pagination-info" id="pagination-info">共 {{ total_messages }} 条</div>
+            <div class="pagination-controls">
+                <label class="pagination-size">
+                    每页
+                    <select id="page-size-select">
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                </label>
+                <button type="button" id="prev-page-btn" class="pagination-btn">上一页</button>
+                <span class="page-indicator" id="page-indicator">1 / 1</span>
+                <button type="button" id="next-page-btn" class="pagination-btn">下一页</button>
+            </div>
+        </div>
     </section>
 
     <script>
         window.SMS_CONFIG = {
             autoRefreshMs: 30000,
-            basePath: "{{ sms_prefix }}"
+            basePath: "{{ sms_prefix }}",
+            totalMessages: {{ total_messages }},
+            pageSize: 10,
+            currentPage: 1
         };
     </script>
-    <script src="/sms/static/app.js?v=3"></script>
+    <script src="/sms/static/app.js?v=4"></script>
 </body>
 </html>

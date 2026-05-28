@@ -4,11 +4,32 @@
     const refreshBtn = document.getElementById("refresh-btn");
     const tableBody = document.getElementById("sms-table-body");
     const deviceGrid = document.getElementById("device-grid");
+    const pageSizeSelect = document.getElementById("page-size-select");
+    const prevPageBtn = document.getElementById("prev-page-btn");
+    const nextPageBtn = document.getElementById("next-page-btn");
+    const pageIndicator = document.getElementById("page-indicator");
+    const paginationInfo = document.getElementById("pagination-info");
     const SMS_BASE = (config.basePath || "/sms").replace(/\/$/, "");
+    const DEFAULT_PAGE_SIZE = 10;
+
+    let currentPage = config.currentPage || 1;
+    let pageSize = config.pageSize || DEFAULT_PAGE_SIZE;
+    let totalCount = config.totalMessages || 0;
+
+    if (pageSizeSelect) {
+        pageSizeSelect.value = String(pageSize);
+    }
 
     function smsPath(path) {
         const normalized = path.startsWith("/") ? path : "/" + path;
         return SMS_BASE + normalized;
+    }
+
+    function getTotalPages() {
+        if (totalCount <= 0) {
+            return 1;
+        }
+        return Math.ceil(totalCount / pageSize);
     }
 
     function buildApiUrl(path) {
@@ -19,6 +40,8 @@
         if (keywordInput && keywordInput.value.trim()) {
             url.searchParams.set("keyword", keywordInput.value.trim());
         }
+        url.searchParams.set("limit", String(pageSize));
+        url.searchParams.set("offset", String((currentPage - 1) * pageSize));
         return url.toString();
     }
 
@@ -59,6 +82,29 @@
             ":" +
             pad(date.getSeconds())
         );
+    }
+
+    function renderPagination() {
+        const totalPages = getTotalPages();
+        if (currentPage > totalPages) {
+            currentPage = totalPages;
+        }
+        if (currentPage < 1) {
+            currentPage = 1;
+        }
+
+        if (pageIndicator) {
+            pageIndicator.textContent = currentPage + " / " + totalPages;
+        }
+        if (paginationInfo) {
+            paginationInfo.textContent = "共 " + totalCount + " 条";
+        }
+        if (prevPageBtn) {
+            prevPageBtn.disabled = currentPage <= 1;
+        }
+        if (nextPageBtn) {
+            nextPageBtn.disabled = currentPage >= totalPages;
+        }
     }
 
     function renderRows(items) {
@@ -122,6 +168,10 @@
     }
 
     async function refreshMessages() {
+        if (!tableBody) {
+            return;
+        }
+
         const response = await fetch(buildApiUrl("/api/sms"), {
             credentials: "same-origin",
         });
@@ -136,11 +186,41 @@
         }
 
         const data = await response.json();
+        totalCount = data.total || 0;
         renderRows(data.items || []);
+        renderPagination();
     }
 
     if (refreshBtn) {
         refreshBtn.addEventListener("click", refreshMessages);
+    }
+
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener("change", function () {
+            pageSize = parseInt(pageSizeSelect.value, 10) || DEFAULT_PAGE_SIZE;
+            currentPage = 1;
+            refreshMessages();
+        });
+    }
+
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener("click", function () {
+            if (currentPage <= 1) {
+                return;
+            }
+            currentPage -= 1;
+            refreshMessages();
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener("click", function () {
+            if (currentPage >= getTotalPages()) {
+                return;
+            }
+            currentPage += 1;
+            refreshMessages();
+        });
     }
 
     if (keywordInput) {
@@ -149,18 +229,13 @@
                 return;
             }
 
-            if (config.deviceId) {
-                const url = new URL(window.location.href);
-                url.searchParams.set("keyword", keywordInput.value.trim());
-                window.location.href = url.toString();
-                return;
-            }
-
+            currentPage = 1;
             refreshMessages();
         });
     }
 
     bindCopyButtons();
+    renderPagination();
 
     async function deleteDevice(button) {
         const deviceId = button.getAttribute("data-device-id");
