@@ -8,108 +8,132 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
+import android.provider.Telephony
 import androidx.core.app.NotificationCompat
+import java.time.Instant
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 
 class SmsForwardService : Service() {
-    private val apiClient = ApiClient()
     private val workerExecutor = Executors.newSingleThreadExecutor()
-    private lateinit var preferences: AppPreferences
-    private lateinit var pendingStore: PendingMessageStore
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var inboxObserver: SmsInboxObserver? = null
+
+    private val periodicScan = object : Runnable {
+        override fun run() {
+            workerExecutor.execute {
+                performInboxScan()
+            }
+            mainHandler.postDelayed(this, SCAN_INTERVAL_MS)
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
-        preferences = AppPreferences(this)
-        pendingStore = PendingMessageStore(this)
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification("等待短信"))
+        startForeground(NOTIFICATION_ID, buildNotification("监听中，等待短信"))
+        NotificationAccessHelper.requestRebind(this)
+        registerInboxObserver()
+        mainHandler.post(periodicScan)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_FORWARD_SMS -> {
-                val sender = intent.getStringExtra(EXTRA_SENDER).orEmpty()
-                val body = intent.getStringExtra(EXTRA_BODY).orEmpty()
-                val receivedAt = intent.getStringExtra(EXTRA_RECEIVED_AT) ?: formatNow()
-                workerExecutor.execute {
-                    handleIncomingSms(sender, body, receivedAt)
-                }
-            }
-
-            ACTION_FLUSH_PENDING -> workerExecutor.execute { flushPendingMessages() }
-
-            else -> workerExecutor.execute { flushPendingMessages() }
+        workerExecutor.execute {
+            flushPendingMessages()
+            performInboxScan()
         }
-
         return START_STICKY
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(periodicScan)
+        unregisterInboxObserver()
         workerExecutor.shutdownNow()
         super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun handleIncomingSms(sender: String, body: String, receivedAt: String) {
-        if (!preferences.isConfigured()) {
-            pendingStore.enqueue(sender, body, receivedAt)
-            updateNotification("未配置，短信已加入待发送队列")
-            return
+    private fun registerInboxObserver() {
+        val observer = SmsInboxObserver(this) { result ->
+            if (result.missingReadSmsPermission) {
+                updateNotification("缺少读取短信权限，请到 App 内重新授权")
+                return@SmsInboxObserver
+            }
+            result.lastForward?.let { (sender, forwardResult) ->
+                updateNotificationFromResult(forwardResult, sender)
+            }
         }
-
-        val result = apiClient.sendInboundSms(
-            serverUrl = preferences.serverUrl,
-            deviceId = preferences.deviceId,
-            apiKey = preferences.apiKey,
-            sender = sender,
-            body = body,
-            receivedAt = receivedAt,
-            phoneNumber = preferences.phoneNumber.ifBlank { null },
+        contentResolver.registerContentObserver(
+            Telephony.Sms.Inbox.CONTENT_URI,
+            true,
+            observer,
         )
+        inboxObserver = observer
+    }
 
-        if (result.isSuccess) {
-            val inbound = result.getOrThrow()
-            val codeText = inbound.verificationCode?.let { " 验证码 $it" }.orEmpty()
-            updateNotification("最近上报: $sender$codeText")
-            flushPendingMessages()
+    private fun unregisterInboxObserver() {
+        inboxObserver?.let { contentResolver.unregisterContentObserver(it) }
+        inboxObserver = null
+    }
+
+    private fun performInboxScan() {
+        val result = SmsInboxScanner.scanAndForward(this)
+        if (result.missingReadSmsPermission) {
+            updateNotification("缺少读取短信权限，请到 App 内重新授权")
             return
         }
-
-        pendingStore.enqueue(sender, body, receivedAt)
-        updateNotification("上报失败，已加入重试队列")
+        result.lastForward?.let { (sender, forwardResult) ->
+            updateNotificationFromResult(forwardResult, sender)
+        }
     }
 
     private fun flushPendingMessages() {
-        if (!preferences.isConfigured()) {
+        val pendingCount = PendingMessageStore(this).listAll().size
+        if (pendingCount == 0) {
             return
         }
 
-        val pendingMessages = pendingStore.listAll()
-        for (message in pendingMessages) {
-            val result = apiClient.sendInboundSms(
-                serverUrl = preferences.serverUrl,
-                deviceId = preferences.deviceId,
-                apiKey = preferences.apiKey,
-                sender = message.sender,
-                body = message.body,
-                receivedAt = message.receivedAt,
-                phoneNumber = preferences.phoneNumber.ifBlank { null },
-            )
-
-            if (result.isFailure) {
-                updateNotification("仍有 ${pendingMessages.size} 条待重试")
-                return
-            }
-
-            pendingStore.remove(message.id)
+        val remaining = SmsForwardHelper.flushPendingMessages(this)
+        if (remaining > 0) {
+            updateNotification("仍有 $remaining 条待重试")
+            return
         }
 
-        if (pendingMessages.isNotEmpty()) {
-            updateNotification("待发送队列已清空")
+        updateNotification("待发送队列已清空")
+    }
+
+    private fun formatCodeText(verificationCode: String?): String {
+        if (verificationCode.isNullOrBlank()) {
+            return " 验证码未识别"
+        }
+        return " 验证码 $verificationCode"
+    }
+
+    private fun updateNotificationFromResult(result: ForwardResult, sender: String) {
+        when (result) {
+            is ForwardResult.Success -> {
+                val duplicateText = if (result.inbound.duplicate) "(重复)" else ""
+                val codeText = formatCodeText(result.inbound.verificationCode)
+                updateNotification("最近上报$duplicateText: $sender$codeText")
+            }
+
+            is ForwardResult.Failure -> {
+                updateNotification("上报失败: ${result.message.take(40)}")
+            }
+
+            ForwardResult.NotConfigured -> {
+                updateNotification("未配置，短信已加入待发送队列")
+            }
+
+            ForwardResult.AlreadyForwarded -> {
+                // 已由其他链路处理，不重复提示。
+            }
         }
     }
 
@@ -150,18 +174,22 @@ class SmsForwardService : Service() {
     }
 
     companion object {
-        const val ACTION_FORWARD_SMS = "com.smsreceiver.action.FORWARD_SMS"
         const val ACTION_FLUSH_PENDING = "com.smsreceiver.action.FLUSH_PENDING"
-        const val EXTRA_SENDER = "extra_sender"
-        const val EXTRA_BODY = "extra_body"
-        const val EXTRA_RECEIVED_AT = "extra_received_at"
 
         private const val CHANNEL_ID = "sms_forward_channel"
         private const val NOTIFICATION_ID = 1001
+        private const val SCAN_INTERVAL_MS = 10_000L
         private val ISO_FORMATTER: DateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME
 
         fun formatNow(): String {
             return OffsetDateTime.now().format(ISO_FORMATTER)
+        }
+
+        fun formatFromEpochMillis(epochMillis: Long): String {
+            return OffsetDateTime.ofInstant(
+                Instant.ofEpochMilli(epochMillis),
+                ZoneId.systemDefault(),
+            ).format(ISO_FORMATTER)
         }
 
         fun start(context: Context) {
@@ -169,6 +197,57 @@ class SmsForwardService : Service() {
                 action = ACTION_FLUSH_PENDING
             }
             context.startForegroundService(intent)
+        }
+
+        fun showStatusNotification(context: Context, result: ForwardResult, sender: String) {
+            if (result is ForwardResult.AlreadyForwarded) {
+                return
+            }
+
+            val appContext = context.applicationContext
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    appContext.getString(R.string.service_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                )
+                val manager = appContext.getSystemService(NotificationManager::class.java)
+                manager.createNotificationChannel(channel)
+            }
+
+            val content = when (result) {
+                is ForwardResult.Success -> {
+                    val duplicateText = if (result.inbound.duplicate) "(重复)" else ""
+                    val codeText = if (result.inbound.verificationCode.isNullOrBlank()) {
+                        " 验证码未识别"
+                    } else {
+                        " 验证码 ${result.inbound.verificationCode}"
+                    }
+                    "最近上报$duplicateText: $sender$codeText"
+                }
+
+                is ForwardResult.Failure -> "上报失败: ${result.message.take(40)}"
+                ForwardResult.NotConfigured -> "未配置，短信已加入待发送队列"
+                ForwardResult.AlreadyForwarded -> return
+            }
+
+            val launchIntent = PendingIntent.getActivity(
+                appContext,
+                0,
+                Intent(appContext, ConfigActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+            val notification = NotificationCompat.Builder(appContext, CHANNEL_ID)
+                .setContentTitle(appContext.getString(R.string.service_notification_title))
+                .setContentText(content)
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentIntent(launchIntent)
+                .setOngoing(true)
+                .build()
+
+            val manager = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(NOTIFICATION_ID, notification)
         }
     }
 }

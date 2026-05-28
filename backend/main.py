@@ -9,10 +9,12 @@ from database import get_connection, init_db
 from models import DeviceSummary
 from routers import devices, sms
 from services.device_service import fetch_devices
+from services.datetime_format import format_display_datetime
 from services.sms_service import fetch_sms_messages
 
 app = FastAPI(title="SMS Receiver", version="1.0.0")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+templates.env.filters["display_datetime"] = format_display_datetime
 
 app.mount("/sms/static", StaticFiles(directory=str(BASE_DIR / "static")), name="sms-static")
 app.include_router(devices.router)

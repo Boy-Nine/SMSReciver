@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
+import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -29,6 +30,7 @@ class ConfigActivity : AppCompatActivity() {
 
     private lateinit var serverUrlInput: TextInputEditText
     private lateinit var deviceNameInput: TextInputEditText
+    private lateinit var connectionStatusText: TextView
     private lateinit var statusText: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,6 +40,7 @@ class ConfigActivity : AppCompatActivity() {
         preferences = AppPreferences(this)
         serverUrlInput = findViewById(R.id.serverUrlInput)
         deviceNameInput = findViewById(R.id.deviceNameInput)
+        connectionStatusText = findViewById(R.id.connectionStatusText)
         statusText = findViewById(R.id.statusText)
 
         serverUrlInput.setText(
@@ -46,7 +49,7 @@ class ConfigActivity : AppCompatActivity() {
         deviceNameInput.setText(preferences.deviceName)
         updateStatusText()
 
-        findViewById<Button>(R.id.testButton).setOnClickListener {
+        findViewById<Button>(R.id.testConnectionButton).setOnClickListener {
             saveInputs()
             testConnection()
         }
@@ -61,11 +64,46 @@ class ConfigActivity : AppCompatActivity() {
             if (!ensureSmsPermissions()) {
                 return@setOnClickListener
             }
-            showPhoneNumberDialog(startServiceAfterPhoneConfirmed = true, prefillPhoneNumber = true)
+            showPhoneNumberDialog()
         }
 
         ensureSmsPermissions()
-        showPhoneNumberDialog(startServiceAfterPhoneConfirmed = false, prefillPhoneNumber = false)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        updateStatusText()
+
+        if (!preferences.serviceEnabled || !preferences.isConfigured()) {
+            return
+        }
+
+        if (!SmsInboxScanner.hasReadSmsPermission(this)) {
+            ensureSmsPermissions()
+            return
+        }
+
+        if (NotificationAccessHelper.isEnabled(this)) {
+            NotificationAccessHelper.requestRebind(this)
+        }
+
+        ensureForwardServiceRunning()
+    }
+
+    private fun ensureForwardServiceRunning() {
+        try {
+            SmsForwardService.start(this)
+        } catch (_: Exception) {
+            return
+        }
+
+        Thread {
+            val result = SmsInboxScanner.scanAndForward(applicationContext)
+            runOnUiThread { updateStatusText() }
+            result.lastForward?.let { (sender, forwardResult) ->
+                SmsForwardService.showStatusNotification(applicationContext, forwardResult, sender)
+            }
+        }.start()
     }
 
     private fun saveInputs() {
@@ -80,18 +118,21 @@ class ConfigActivity : AppCompatActivity() {
             return
         }
 
+        connectionStatusText.visibility = View.VISIBLE
+        connectionStatusText.text = "正在测试连通..."
+
         CoroutineScope(Dispatchers.Main).launch {
             val result = withContext(Dispatchers.IO) {
                 apiClient.healthCheck(serverUrl)
             }
 
             if (result.isSuccess) {
-                statusText.text = "连通成功: ${result.getOrThrow()}"
+                connectionStatusText.text = "连通成功: ${result.getOrThrow()}"
                 Toast.makeText(this@ConfigActivity, "服务器连通正常", Toast.LENGTH_SHORT).show()
                 return@launch
             }
 
-            statusText.text = "连通失败: ${result.exceptionOrNull()?.message}"
+            connectionStatusText.text = "连通失败: ${result.exceptionOrNull()?.message}"
             Toast.makeText(this@ConfigActivity, "连通失败", Toast.LENGTH_SHORT).show()
         }
     }
@@ -127,6 +168,7 @@ class ConfigActivity : AppCompatActivity() {
             deviceNameInput.setText(registerResult.deviceName)
             updateStatusText()
             Toast.makeText(this@ConfigActivity, "设备注册成功", Toast.LENGTH_SHORT).show()
+            SmsForwardService.start(this@ConfigActivity)
         }
     }
 
@@ -137,17 +179,13 @@ class ConfigActivity : AppCompatActivity() {
         lines.add("手机号: ${preferences.phoneNumber.ifBlank { "未设置" }}")
         lines.add("Device ID: ${preferences.deviceId.ifBlank { "未注册" }}")
         lines.add("API Key: ${maskSecret(preferences.apiKey)}")
+        lines.add("转发服务: ${if (preferences.serviceEnabled) "已开启" else "未开启"}")
         statusText.text = lines.joinToString(separator = "\n")
     }
 
-    private fun showPhoneNumberDialog(
-        startServiceAfterPhoneConfirmed: Boolean,
-        prefillPhoneNumber: Boolean,
-    ) {
+    private fun showPhoneNumberDialog() {
         val input = EditText(this).apply {
-            if (prefillPhoneNumber) {
-                setText(preferences.phoneNumber)
-            }
+            setText(preferences.phoneNumber)
             hint = getString(R.string.phone_number_hint)
             inputType = InputType.TYPE_CLASS_TEXT
             minLines = 2
@@ -168,15 +206,10 @@ class ConfigActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
-                val phoneNumber = input.text?.toString()?.trim().orEmpty()
-
-                preferences.phoneNumber = phoneNumber
+                preferences.phoneNumber = input.text?.toString()?.trim().orEmpty()
                 updateStatusText()
                 dialog.dismiss()
-
-                if (startServiceAfterPhoneConfirmed) {
-                    startForwardService()
-                }
+                startForwardService()
             }
         }
 
@@ -184,8 +217,22 @@ class ConfigActivity : AppCompatActivity() {
     }
 
     private fun startForwardService() {
+        if (!preferences.inboxBaselineSet) {
+            SmsInboxScanner.markBaseline(this)
+            preferences.inboxBaselineSet = true
+        }
+
+        preferences.serviceEnabled = true
         requestBatteryOptimizationExemption()
         SmsForwardService.start(this)
+
+        if (!NotificationAccessHelper.isEnabled(this)) {
+            Toast.makeText(this, "请在系统设置中开启本 App 的通知监听", Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        } else {
+            NotificationAccessHelper.requestRebind(this)
+        }
+
         Toast.makeText(this, "转发服务已启动", Toast.LENGTH_SHORT).show()
         updateStatusText()
     }
@@ -236,6 +283,22 @@ class ConfigActivity : AppCompatActivity() {
             data = Uri.parse("package:$packageName")
         }
         startActivity(intent)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQUEST_PERMISSIONS) {
+            return
+        }
+        if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+            Toast.makeText(this, "短信权限已授予，请再次点击启动转发服务", Toast.LENGTH_LONG).show()
+            return
+        }
+        Toast.makeText(this, "未授予短信权限，无法转发", Toast.LENGTH_LONG).show()
     }
 
     companion object {

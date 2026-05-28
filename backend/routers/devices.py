@@ -53,6 +53,6 @@ def list_devices(_: None = Depends(verify_admin)) -> list[DeviceSummary]:
     return fetch_devices()
 
 
-def build_message_hash(device_id: str, sender: str, body: str, received_at: str) -> str:
-    raw = f"{device_id}|{sender}|{body}|{received_at}"
+def build_message_hash(device_id: str, sender: str, body: str, received_at: str | None = None) -> str:
+    raw = f"{device_id}|{sender.strip()}|{body.strip()}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

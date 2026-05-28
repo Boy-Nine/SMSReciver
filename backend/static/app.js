@@ -15,6 +15,35 @@
         return url.toString();
     }
 
+    function formatDisplayDatetime(value) {
+        if (!value) {
+            return "-";
+        }
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
+
+        const pad = function (num) {
+            return String(num).padStart(2, "0");
+        };
+
+        return (
+            date.getFullYear() +
+            "-" +
+            pad(date.getMonth() + 1) +
+            "-" +
+            pad(date.getDate()) +
+            " " +
+            pad(date.getHours()) +
+            ":" +
+            pad(date.getMinutes()) +
+            ":" +
+            pad(date.getSeconds())
+        );
+    }
+
     function renderRows(items) {
         if (!tableBody) {
             return;
@@ -40,7 +69,7 @@
                     <td>${escapeHtml(msg.sender)}</td>
                     <td>${codeCell}</td>
                     <td class="body-cell">${escapeHtml(msg.body)}</td>
-                    <td>${escapeHtml(msg.received_at)}</td>
+                    <td>${escapeHtml(formatDisplayDatetime(msg.received_at))}</td>
                 </tr>
             `;
         }).join("");

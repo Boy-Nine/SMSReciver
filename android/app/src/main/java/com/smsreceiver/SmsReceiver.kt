@@ -1,13 +1,22 @@
 package com.smsreceiver
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Telephony
+import androidx.core.content.ContextCompat
 
 class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+            return
+        }
+
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
             return
         }
 
@@ -23,12 +32,35 @@ class SmsReceiver : BroadcastReceiver() {
         }
 
         val receivedAt = SmsForwardService.formatNow()
-        val serviceIntent = Intent(context, SmsForwardService::class.java).apply {
-            action = SmsForwardService.ACTION_FORWARD_SMS
-            putExtra(SmsForwardService.EXTRA_SENDER, sender)
-            putExtra(SmsForwardService.EXTRA_BODY, body)
-            putExtra(SmsForwardService.EXTRA_RECEIVED_AT, receivedAt)
+        val pendingResult = goAsync()
+
+        Thread {
+            try {
+                dispatchSms(context, sender, body, receivedAt)
+            } finally {
+                pendingResult.finish()
+            }
+        }.start()
+    }
+
+    private fun dispatchSms(context: Context, sender: String, body: String, receivedAt: String) {
+        val result = SmsForwardHelper.forwardSms(context, sender, body, receivedAt)
+        if (result is ForwardResult.AlreadyForwarded) {
+            return
         }
-        context.startForegroundService(serviceIntent)
+
+        if (result is ForwardResult.Success || result is ForwardResult.Failure) {
+            SmsForwardService.showStatusNotification(context, result, sender)
+        }
+
+        if (result is ForwardResult.Failure) {
+            NotificationCaptureHelper.captureFromInboxFallback(context, showRedactedHint = false)
+        }
+
+        try {
+            SmsForwardService.start(context)
+        } catch (_: Exception) {
+            // 服务拉不起来时，上面已直连上报。
+        }
     }
 }

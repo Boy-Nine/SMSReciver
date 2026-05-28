@@ -51,7 +51,7 @@
                             {% endif %}
                         </td>
                         <td class="body-cell">{{ msg.body }}</td>
-                        <td>{{ msg.received_at }}</td>
+                        <td>{{ msg.received_at | display_datetime }}</td>
                     </tr>
                     {% else %}
                     <tr>
