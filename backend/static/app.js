@@ -291,6 +291,30 @@
 
     if (deviceGrid) {
         deviceGrid.addEventListener("click", function (event) {
+            const saveBtn = event.target.closest(".device-save-btn");
+            if (saveBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                saveDeviceCard(saveBtn.closest(".device-card"));
+                return;
+            }
+
+            const cancelBtn = event.target.closest(".device-cancel-btn");
+            if (cancelBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                closeDeviceEdit(cancelBtn.closest(".device-card"));
+                return;
+            }
+
+            const editBtn = event.target.closest(".device-edit-btn");
+            if (editBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                openDeviceEdit(editBtn.closest(".device-card"));
+                return;
+            }
+
             const deleteBtn = event.target.closest(".device-delete-btn");
             if (!deleteBtn) {
                 return;
@@ -299,6 +323,148 @@
             event.preventDefault();
             event.stopPropagation();
             deleteDevice(deleteBtn);
+        });
+    }
+
+    function openDeviceEdit(card) {
+        if (!card) {
+            return;
+        }
+
+        card.classList.add("is-editing");
+        const nameInput = card.querySelector(".device-edit-name");
+        if (nameInput) {
+            nameInput.focus();
+            nameInput.select();
+        }
+    }
+
+    function closeDeviceEdit(card) {
+        if (!card) {
+            return;
+        }
+
+        const nameInput = card.querySelector(".device-edit-name");
+        const phoneInput = card.querySelector(".device-edit-phone");
+        const nameLink = card.querySelector(".device-name-link");
+        if (nameInput && nameLink) {
+            nameInput.value = nameLink.textContent.trim();
+        }
+        if (phoneInput) {
+            phoneInput.value = card.getAttribute("data-phone") || "";
+        }
+
+        card.classList.remove("is-editing");
+    }
+
+    function updateDeviceCardView(card, device) {
+        if (!card || !device) {
+            return;
+        }
+
+        const phoneNumber = device.phone_number || "";
+        card.setAttribute("data-phone", phoneNumber);
+
+        const popover = card.querySelector(".device-phone-popover");
+        if (popover) {
+            popover.textContent = phoneNumber || "未设置手机号";
+        }
+
+        const nameLink = card.querySelector(".device-name-link");
+        if (nameLink) {
+            nameLink.textContent = device.device_name;
+        }
+
+        const deleteBtn = card.querySelector(".device-delete-btn");
+        if (deleteBtn) {
+            deleteBtn.setAttribute("data-device-name", device.device_name);
+        }
+
+        const nameInput = card.querySelector(".device-edit-name");
+        const phoneInput = card.querySelector(".device-edit-phone");
+        if (nameInput) {
+            nameInput.value = device.device_name;
+        }
+        if (phoneInput) {
+            phoneInput.value = phoneNumber;
+        }
+    }
+
+    async function saveDeviceCard(card) {
+        if (!card) {
+            return;
+        }
+
+        const deviceId = card.getAttribute("data-device-id");
+        const nameInput = card.querySelector(".device-edit-name");
+        const phoneInput = card.querySelector(".device-edit-phone");
+        const saveBtn = card.querySelector(".device-save-btn");
+        if (!deviceId || !nameInput) {
+            return;
+        }
+
+        const deviceName = nameInput.value.trim();
+        if (!deviceName) {
+            window.alert("设备名称不能为空");
+            nameInput.focus();
+            return;
+        }
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.textContent = "保存中…";
+        }
+
+        try {
+            const response = await fetch(smsPath("/api/devices/" + encodeURIComponent(deviceId)), {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    device_name: deviceName,
+                    phone_number: phoneInput ? phoneInput.value.trim() : "",
+                }),
+            });
+
+            if (response.status === 401) {
+                redirectToLogin();
+                return;
+            }
+
+            if (!response.ok) {
+                window.alert("保存失败，请稍后重试");
+                return;
+            }
+
+            const device = await response.json();
+            updateDeviceCardView(card, device);
+            card.classList.remove("is-editing");
+            refreshMessages();
+        } catch (error) {
+            window.alert("保存失败，请检查网络后重试");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = "保存";
+            }
+        }
+    }
+
+    if (deviceGrid) {
+        deviceGrid.addEventListener("keydown", function (event) {
+            if (event.key !== "Enter") {
+                return;
+            }
+
+            const card = event.target.closest(".device-card.is-editing");
+            if (!card) {
+                return;
+            }
+
+            event.preventDefault();
+            saveDeviceCard(card);
         });
     }
 

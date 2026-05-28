@@ -110,13 +110,56 @@ button {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 16px;
+    padding-top: 10px;
 }
 
 .device-card {
+    position: relative;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 12px;
-    overflow: hidden;
+    overflow: visible;
+}
+
+.device-phone-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    z-index: 10;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.4;
+    white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.device-phone-popover::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -6px;
+    border-width: 6px 6px 0;
+    border-style: solid;
+    border-color: #1f2937 transparent transparent;
+}
+
+.device-card:hover .device-phone-popover,
+.device-card:focus-within .device-phone-popover {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+.device-card.is-editing .device-phone-popover {
+    opacity: 0;
 }
 
 .device-card-head {
@@ -127,7 +170,14 @@ button {
     padding: 14px 16px 0;
 }
 
+.device-card-actions {
+    display: flex;
+    flex-shrink: 0;
+    gap: 6px;
+}
+
 .device-name-link {
+    min-width: 0;
     font-size: 17px;
     font-weight: 600;
     color: var(--text);
@@ -150,6 +200,88 @@ button {
 
 .device-card-body:hover .device-preview {
     color: var(--text);
+}
+
+.device-card-edit {
+    display: none;
+    padding: 14px 16px 16px;
+}
+
+.device-card.is-editing .device-card-view {
+    display: none;
+}
+
+.device-card.is-editing .device-card-edit {
+    display: block;
+}
+
+.device-edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.device-edit-field input {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.device-edit-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.btn-edit,
+.btn-save,
+.btn-cancel {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.btn-edit {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+}
+
+.btn-edit:hover {
+    border-color: #c7d2fe;
+    color: var(--primary);
+}
+
+.btn-save {
+    border: none;
+    background: var(--primary);
+    color: #fff;
+}
+
+.btn-save:hover {
+    background: #1d4ed8;
+}
+
+.btn-save:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-cancel {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+}
+
+.btn-cancel:hover {
+    background: #f3f4f6;
 }
 
 .btn-delete {

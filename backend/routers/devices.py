@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 
 from auth import verify_admin
 from database import get_connection, utc_now
-from models import DeviceRegisterRequest, DeviceRegisterResponse, DeviceSummary
-from services.device_service import fetch_devices
+from models import DeviceRegisterRequest, DeviceRegisterResponse, DeviceSummary, DeviceUpdateRequest
+from services.device_service import fetch_devices, update_device
 
 router = APIRouter(prefix="/sms/api/devices", tags=["devices"])
 
@@ -51,6 +51,23 @@ def register_device(payload: DeviceRegisterRequest) -> DeviceRegisterResponse:
 @router.get("", response_model=list[DeviceSummary])
 def list_devices(_: None = Depends(verify_admin)) -> list[DeviceSummary]:
     return fetch_devices()
+
+
+@router.patch("/{device_id}", response_model=DeviceSummary)
+def patch_device(
+    device_id: str,
+    payload: DeviceUpdateRequest,
+    _: None = Depends(verify_admin),
+) -> DeviceSummary:
+    updated = update_device(
+        device_id=device_id,
+        device_name=payload.device_name,
+        phone_number=payload.phone_number,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    return updated
 
 
 @router.delete("/{device_id}")

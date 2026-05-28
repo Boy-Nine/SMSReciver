@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>验证码接收后台</title>
     {% include "_head_icons.html" %}
-    <link rel="stylesheet" href="/sms/static/style.css?v=4">
+    <link rel="stylesheet" href="/sms/static/style.css?v=5">
 </head>
 <body>
     <header class="header">
@@ -26,33 +26,76 @@
         <h2>设备列表</h2>
         <div class="device-grid" id="device-grid">
             {% for device in devices %}
-            <div class="device-card">
-                <div class="device-card-head">
-                    <a class="device-name-link" href="/sms/device/{{ device.device_id }}">{{ device.device_name }}</a>
-                    <button
-                        class="btn-delete device-delete-btn"
-                        type="button"
-                        data-device-id="{{ device.device_id }}"
-                        data-device-name="{{ device.device_name }}"
-                    >删除</button>
-                </div>
-                <a class="device-card-body" href="/sms/device/{{ device.device_id }}">
-                    <div class="device-meta">
-                        {% if device.phone_number %}
-                        <span>{{ device.phone_number }}</span>
-                        {% else %}
-                        <span class="muted">未上报手机号</span>
-                        {% endif %}
-                        {% if device.last_seen_at %}
-                        <span>最近活跃: {{ device.last_seen_at }}</span>
-                        {% endif %}
-                    </div>
-                    {% if device.latest_sms_preview %}
-                    <div class="device-preview">{{ device.latest_sms_preview }}</div>
+            <div
+                class="device-card"
+                data-device-id="{{ device.device_id }}"
+                data-phone="{{ device.phone_number or '' }}"
+            >
+                <div class="device-phone-popover">
+                    {% if device.phone_number %}
+                    {{ device.phone_number }}
                     {% else %}
-                    <div class="device-preview muted">暂无短信</div>
+                    未设置手机号
                     {% endif %}
-                </a>
+                </div>
+                <div class="device-card-view">
+                    <div class="device-card-head">
+                        <a class="device-name-link" href="/sms/device/{{ device.device_id }}">{{ device.device_name }}</a>
+                        <div class="device-card-actions">
+                            <button
+                                class="btn-edit device-edit-btn"
+                                type="button"
+                                data-device-id="{{ device.device_id }}"
+                            >编辑</button>
+                            <button
+                                class="btn-delete device-delete-btn"
+                                type="button"
+                                data-device-id="{{ device.device_id }}"
+                                data-device-name="{{ device.device_name }}"
+                            >删除</button>
+                        </div>
+                    </div>
+                    <a class="device-card-body" href="/sms/device/{{ device.device_id }}">
+                        <div class="device-meta">
+                            {% if device.last_seen_at %}
+                            <span>最近活跃: {{ device.last_seen_at }}</span>
+                            {% else %}
+                            <span class="muted">暂无活跃记录</span>
+                            {% endif %}
+                        </div>
+                        {% if device.latest_sms_preview %}
+                        <div class="device-preview">{{ device.latest_sms_preview }}</div>
+                        {% else %}
+                        <div class="device-preview muted">暂无短信</div>
+                        {% endif %}
+                    </a>
+                </div>
+                <form class="device-card-edit">
+                    <label class="device-edit-field">
+                        <span>设备名称</span>
+                        <input
+                            class="device-edit-name"
+                            type="text"
+                            maxlength="100"
+                            value="{{ device.device_name }}"
+                            required
+                        >
+                    </label>
+                    <label class="device-edit-field">
+                        <span>手机号</span>
+                        <input
+                            class="device-edit-phone"
+                            type="text"
+                            maxlength="100"
+                            value="{{ device.phone_number or '' }}"
+                            placeholder="可留空"
+                        >
+                    </label>
+                    <div class="device-edit-actions">
+                        <button class="btn-save device-save-btn" type="button">保存</button>
+                        <button class="btn-cancel device-cancel-btn" type="button">取消</button>
+                    </div>
+                </form>
             </div>
             {% else %}
             <div class="empty">暂无设备，请先在 Android 端注册。</div>
@@ -125,6 +168,6 @@
             currentPage: 1
         };
     </script>
-    <script src="/sms/static/app.js?v=4"></script>
+    <script src="/sms/static/app.js?v=5"></script>
 </body>
 </html>

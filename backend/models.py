@@ -35,6 +35,11 @@ class DeviceSummary(BaseModel):
     latest_sms_at: str | None = None
 
 
+class DeviceUpdateRequest(BaseModel):
+    device_name: str = Field(min_length=1, max_length=100)
+    phone_number: str | None = Field(default=None, max_length=100)
+
+
 class SmsMessageItem(BaseModel):
     id: int
     device_id: str
