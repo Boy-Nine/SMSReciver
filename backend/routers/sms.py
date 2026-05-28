@@ -7,7 +7,7 @@ from routers.devices import build_message_hash, verify_device
 from services.code_extractor import extract_verification_code
 from services.sms_service import fetch_sms_messages
 
-router = APIRouter(prefix="/api/sms", tags=["sms"])
+router = APIRouter(prefix="/sms/api/sms", tags=["sms"])
 
 
 @router.post("/inbound", response_model=SmsInboundResponse)

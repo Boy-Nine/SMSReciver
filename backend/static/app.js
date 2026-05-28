@@ -76,7 +76,7 @@
     }
 
     async function refreshMessages() {
-        const response = await fetch(buildApiUrl("/api/sms"), {
+        const response = await fetch(buildApiUrl("/sms/api/sms"), {
             credentials: "same-origin",
         });
 

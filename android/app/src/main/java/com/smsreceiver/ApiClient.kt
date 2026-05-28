@@ -18,7 +18,7 @@ class ApiClient {
 
     fun healthCheck(serverUrl: String): Result<String> {
         val request = Request.Builder()
-            .url(normalizeUrl(serverUrl) + "/api/health")
+            .url(normalizeUrl(serverUrl) + "/sms/api/health")
             .get()
             .build()
 
@@ -41,7 +41,7 @@ class ApiClient {
         }
 
         val request = Request.Builder()
-            .url(normalizeUrl(serverUrl) + "/api/devices/register")
+            .url(normalizeUrl(serverUrl) + "/sms/api/devices/register")
             .post(payload.toString().toRequestBody(jsonMediaType))
             .build()
 
@@ -74,7 +74,7 @@ class ApiClient {
         }
 
         val request = Request.Builder()
-            .url(normalizeUrl(serverUrl) + "/api/sms/inbound")
+            .url(normalizeUrl(serverUrl) + "/sms/api/sms/inbound")
             .addHeader("X-Device-Id", deviceId)
             .addHeader("X-Api-Key", apiKey)
             .post(payload.toString().toRequestBody(jsonMediaType))

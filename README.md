@@ -55,11 +55,11 @@ chmod +x scripts/integration_test.sh
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/health` | 健康检查 |
-| POST | `/api/devices/register` | 注册设备 |
-| POST | `/api/sms/inbound` | 手机端上报短信 |
-| GET | `/api/sms` | 查询短信（需 Cookie `sms` 或请求头 `X-Sms-Token`） |
-| GET | `/api/devices` | 查询设备（同上） |
+| GET | `/sms/api/health` | 健康检查 |
+| POST | `/sms/api/devices/register` | 注册设备 |
+| POST | `/sms/api/sms/inbound` | 手机端上报短信 |
+| GET | `/sms/api/sms` | 查询短信（需 Cookie `sms` 或请求头 `X-Sms-Token`） |
+| GET | `/sms/api/devices` | 查询设备（同上） |
 | GET | `/sms/` | Web 管理页（登录后） |
 | POST | `/sms/login` | 登录并设置 Cookie |
 

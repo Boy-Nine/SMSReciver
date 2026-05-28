@@ -9,7 +9,7 @@ from database import get_connection, utc_now
 from models import DeviceRegisterRequest, DeviceRegisterResponse, DeviceSummary
 from services.device_service import fetch_devices
 
-router = APIRouter(prefix="/api/devices", tags=["devices"])
+router = APIRouter(prefix="/sms/api/devices", tags=["devices"])
 
 
 def verify_device(device_id: str, api_key: str) -> dict:

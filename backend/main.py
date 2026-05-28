@@ -26,7 +26,7 @@ def on_startup() -> None:
     init_db()
 
 
-@app.get("/api/health")
+@app.get("/sms/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
 

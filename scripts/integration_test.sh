@@ -7,11 +7,11 @@ COOKIE_JAR="${COOKIE_JAR:-$(mktemp)}"
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
 echo "[1/6] health check"
-curl -sf "${BASE_URL}/api/health" >/dev/null
+curl -sf "${BASE_URL}/sms/api/health" >/dev/null
 
 echo "[2/6] register device"
 REGISTER_PAYLOAD='{"device_name":"联调测试机","phone_number":"13900001111"}'
-REGISTER_RESPONSE=$(curl -sf -X POST "${BASE_URL}/api/devices/register" \
+REGISTER_RESPONSE=$(curl -sf -X POST "${BASE_URL}/sms/api/devices/register" \
   -H "Content-Type: application/json" \
   -d "${REGISTER_PAYLOAD}")
 
@@ -30,7 +30,7 @@ echo "device_id=${DEVICE_ID}"
 
 echo "[3/6] send inbound sms"
 INBOUND_PAYLOAD='{"sender":"10690000","body":"【测试】您的验证码是654321，请勿泄露。","received_at":"2026-05-27T12:00:00+08:00","phone_number":"13900001111"}'
-INBOUND_RESPONSE=$(curl -sf -X POST "${BASE_URL}/api/sms/inbound" \
+INBOUND_RESPONSE=$(curl -sf -X POST "${BASE_URL}/sms/api/sms/inbound" \
   -H "Content-Type: application/json" \
   -H "X-Device-Id: ${DEVICE_ID}" \
   -H "X-Api-Key: ${API_KEY}" \
@@ -39,7 +39,7 @@ INBOUND_RESPONSE=$(curl -sf -X POST "${BASE_URL}/api/sms/inbound" \
 echo "${INBOUND_RESPONSE}"
 
 echo "[4/6] verify sms list (X-Sms-Token header)"
-SMS_RESPONSE=$(curl -sf "${BASE_URL}/api/sms?keyword=654321" \
+SMS_RESPONSE=$(curl -sf "${BASE_URL}/sms/api/sms?keyword=654321" \
   -H "X-Sms-Token: ${ADMIN_TOKEN}")
 python3 - <<'PY' "${SMS_RESPONSE}"
 import json, sys
