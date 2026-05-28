@@ -89,7 +89,7 @@ def login_submit(
         httponly=True,
         samesite="lax",
         max_age=SMS_COOKIE_MAX_AGE,
-        path=SMS_PREFIX,
+        path="/",
     )
     return response
 
@@ -97,7 +97,7 @@ def login_submit(
 @app.post(f"{SMS_PREFIX}/logout")
 def logout() -> RedirectResponse:
     response = RedirectResponse(url=f"{SMS_PREFIX}/login", status_code=302)
-    response.delete_cookie(key=SMS_COOKIE_NAME, path=SMS_PREFIX)
+    response.delete_cookie(key=SMS_COOKIE_NAME, path="/")
     return response
 
 

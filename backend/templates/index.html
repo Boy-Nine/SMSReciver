@@ -26,57 +26,34 @@
         <h2>设备列表</h2>
         <div class="device-grid" id="device-grid">
             {% for device in devices %}
-            <article class="device-card">
-                <div class="device-card-inner">
-                    <a class="device-card-link" href="/sms/device/{{ device.device_id }}">
-                        <span class="device-avatar" aria-hidden="true">{{ device.device_name[:1] | upper }}</span>
-                        <div class="device-content">
-                            <h3 class="device-name">{{ device.device_name }}</h3>
-                            <div class="device-meta">
-                                {% if device.phone_number %}
-                                <span class="device-meta-item">{{ device.phone_number }}</span>
-                                {% else %}
-                                <span class="device-meta-item muted">未上报手机号</span>
-                                {% endif %}
-                                {% if device.last_seen_at %}
-                                <span class="device-meta-item">
-                                    <span class="device-status-dot"></span>
-                                    {{ device.last_seen_at }}
-                                </span>
-                                {% endif %}
-                            </div>
-                            {% if device.latest_sms_preview %}
-                            <p class="device-preview">{{ device.latest_sms_preview }}</p>
-                            {% else %}
-                            <p class="device-preview muted">暂无短信</p>
-                            {% endif %}
-                        </div>
-                    </a>
-                    <div class="device-card-menu">
-                        <button
-                            class="device-menu-trigger"
-                            type="button"
-                            aria-label="设备操作"
-                            aria-haspopup="menu"
-                            aria-expanded="false"
-                        >
-                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
-                        </button>
-                        <div class="device-menu-panel" role="menu" hidden>
-                            <button
-                                class="device-menu-item is-danger device-delete-btn"
-                                type="button"
-                                role="menuitem"
-                                data-device-id="{{ device.device_id }}"
-                                data-device-name="{{ device.device_name }}"
-                            >
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-1 4h2v11H8V7zm4 0h2v11h-2V7zm4 0h2v11h-2V7z"/></svg>
-                                移除设备
-                            </button>
-                        </div>
-                    </div>
+            <div class="device-card">
+                <div class="device-card-head">
+                    <a class="device-name-link" href="/sms/device/{{ device.device_id }}">{{ device.device_name }}</a>
+                    <button
+                        class="btn-delete device-delete-btn"
+                        type="button"
+                        data-device-id="{{ device.device_id }}"
+                        data-device-name="{{ device.device_name }}"
+                    >删除</button>
                 </div>
-            </article>
+                <a class="device-card-body" href="/sms/device/{{ device.device_id }}">
+                    <div class="device-meta">
+                        {% if device.phone_number %}
+                        <span>{{ device.phone_number }}</span>
+                        {% else %}
+                        <span class="muted">未上报手机号</span>
+                        {% endif %}
+                        {% if device.last_seen_at %}
+                        <span>最近活跃: {{ device.last_seen_at }}</span>
+                        {% endif %}
+                    </div>
+                    {% if device.latest_sms_preview %}
+                    <div class="device-preview">{{ device.latest_sms_preview }}</div>
+                    {% else %}
+                    <div class="device-preview muted">暂无短信</div>
+                    {% endif %}
+                </a>
+            </div>
             {% else %}
             <div class="empty">暂无设备，请先在 Android 端注册。</div>
             {% endfor %}
@@ -123,26 +100,12 @@
         </div>
     </section>
 
-    <div class="confirm-overlay" id="confirm-overlay" hidden aria-hidden="true">
-        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-            <div class="confirm-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 14h-2v-2h2v2zm0-8h-2v6h2V8z"/></svg>
-            </div>
-            <h3 class="confirm-title" id="confirm-title">确认移除设备？</h3>
-            <p class="confirm-message" id="confirm-message"></p>
-            <div class="confirm-actions">
-                <button class="confirm-btn confirm-btn-cancel" type="button" id="confirm-cancel">取消</button>
-                <button class="confirm-btn confirm-btn-danger" type="button" id="confirm-ok">确认移除</button>
-            </div>
-        </div>
-    </div>
-
     <script>
         window.SMS_CONFIG = {
             autoRefreshMs: 30000,
             basePath: "{{ sms_prefix }}"
         };
     </script>
-    <script src="/sms/static/app.js"></script>
+    <script src="/sms/static/app.js?v=2"></script>
 </body>
 </html>
