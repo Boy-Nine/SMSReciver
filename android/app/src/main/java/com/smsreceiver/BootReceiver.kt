@@ -6,15 +6,12 @@ import android.content.Intent
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED) {
-            return
-        }
+        when (intent.action) {
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            -> SmsAutoStartHelper.tryStart(context)
 
-        val preferences = AppPreferences(context)
-        if (!preferences.serviceEnabled || !preferences.isConfigured()) {
-            return
+            else -> return
         }
-
-        SmsForwardService.start(context)
     }
 }

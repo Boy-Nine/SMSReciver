@@ -24,26 +24,36 @@
 
     <section class="section">
         <h2>设备列表</h2>
-        <div class="device-grid">
+        <div class="device-grid" id="device-grid">
             {% for device in devices %}
-            <a class="device-card" href="/sms/device/{{ device.device_id }}">
-                <div class="device-title">{{ device.device_name }}</div>
-                <div class="device-meta">
-                    {% if device.phone_number %}
-                    <span>{{ device.phone_number }}</span>
-                    {% else %}
-                    <span>未上报手机号</span>
-                    {% endif %}
-                    {% if device.last_seen_at %}
-                    <span>最近活跃: {{ device.last_seen_at }}</span>
-                    {% endif %}
+            <div class="device-card">
+                <div class="device-card-header">
+                    <a class="device-title-link" href="/sms/device/{{ device.device_id }}">{{ device.device_name }}</a>
+                    <button
+                        class="device-delete-btn"
+                        type="button"
+                        data-device-id="{{ device.device_id }}"
+                        data-device-name="{{ device.device_name }}"
+                    >删除</button>
                 </div>
-                {% if device.latest_sms_preview %}
-                <div class="device-preview">{{ device.latest_sms_preview }}</div>
-                {% else %}
-                <div class="device-preview muted">暂无短信</div>
-                {% endif %}
-            </a>
+                <a class="device-card-body" href="/sms/device/{{ device.device_id }}">
+                    <div class="device-meta">
+                        {% if device.phone_number %}
+                        <span>{{ device.phone_number }}</span>
+                        {% else %}
+                        <span>未上报手机号</span>
+                        {% endif %}
+                        {% if device.last_seen_at %}
+                        <span>最近活跃: {{ device.last_seen_at }}</span>
+                        {% endif %}
+                    </div>
+                    {% if device.latest_sms_preview %}
+                    <div class="device-preview">{{ device.latest_sms_preview }}</div>
+                    {% else %}
+                    <div class="device-preview muted">暂无短信</div>
+                    {% endif %}
+                </a>
+            </div>
             {% else %}
             <div class="empty">暂无设备，请先在 Android 端注册。</div>
             {% endfor %}

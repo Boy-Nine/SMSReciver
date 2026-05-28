@@ -81,13 +81,6 @@
                     android:layout_marginTop="8dp"
                     android:text="@string/register_device" />
 
-                <Button
-                    android:id="@+id/startServiceButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/start_service" />
-
                 <TextView
                     android:id="@+id/connectionStatusText"
                     android:layout_width="match_parent"

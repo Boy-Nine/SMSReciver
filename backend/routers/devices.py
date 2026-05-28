@@ -53,6 +53,22 @@ def list_devices(_: None = Depends(verify_admin)) -> list[DeviceSummary]:
     return fetch_devices()
 
 
+@router.delete("/{device_id}")
+def delete_device(device_id: str, _: None = Depends(verify_admin)) -> dict[str, bool]:
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT device_id FROM devices WHERE device_id = ?",
+            (device_id,),
+        ).fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Device not found")
+
+        conn.execute("DELETE FROM sms_messages WHERE device_id = ?", (device_id,))
+        conn.execute("DELETE FROM devices WHERE device_id = ?", (device_id,))
+
+    return {"ok": True}
+
+
 def build_message_hash(device_id: str, sender: str, body: str, received_at: str | None = None) -> str:
     raw = f"{device_id}|{sender.strip()}|{body.strip()}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()

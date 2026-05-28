@@ -33,6 +33,8 @@ class ConfigActivity : AppCompatActivity() {
     private lateinit var connectionStatusText: TextView
     private lateinit var statusText: TextView
 
+    private var pendingAutoStartAfterRegister = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_config)
@@ -59,51 +61,35 @@ class ConfigActivity : AppCompatActivity() {
             registerDevice()
         }
 
-        findViewById<Button>(R.id.startServiceButton).setOnClickListener {
-            saveInputs()
-            if (!ensureSmsPermissions()) {
-                return@setOnClickListener
-            }
-            showPhoneNumberDialog()
-        }
-
         ensureSmsPermissions()
+        tryAutoStart(showHints = false)
     }
 
     override fun onResume() {
         super.onResume()
         updateStatusText()
-
-        if (!preferences.serviceEnabled || !preferences.isConfigured()) {
-            return
-        }
-
-        if (!SmsInboxScanner.hasReadSmsPermission(this)) {
-            ensureSmsPermissions()
-            return
-        }
-
-        if (NotificationAccessHelper.isEnabled(this)) {
-            NotificationAccessHelper.requestRebind(this)
-        }
-
-        ensureForwardServiceRunning()
+        tryAutoStart(showHints = preferences.isConfigured())
     }
 
-    private fun ensureForwardServiceRunning() {
-        try {
-            SmsForwardService.start(this)
-        } catch (_: Exception) {
+    private fun tryAutoStart(showHints: Boolean) {
+        if (!preferences.isConfigured()) {
             return
         }
 
-        Thread {
-            val result = SmsInboxScanner.scanAndForward(applicationContext)
-            runOnUiThread { updateStatusText() }
-            result.lastForward?.let { (sender, forwardResult) ->
-                SmsForwardService.showStatusNotification(applicationContext, forwardResult, sender)
-            }
-        }.start()
+        if (!ensureSmsPermissions()) {
+            pendingAutoStartAfterRegister = true
+            return
+        }
+
+        SmsAutoStartHelper.tryStart(this)
+        requestBatteryOptimizationExemption()
+
+        if (showHints && !NotificationAccessHelper.isEnabled(this)) {
+            Toast.makeText(this, "建议开启通知监听，否则 iQOO 可能收不到短信", Toast.LENGTH_LONG).show()
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }
+
+        updateStatusText()
     }
 
     private fun saveInputs() {
@@ -167,8 +153,8 @@ class ConfigActivity : AppCompatActivity() {
             preferences.deviceName = registerResult.deviceName
             deviceNameInput.setText(registerResult.deviceName)
             updateStatusText()
-            Toast.makeText(this@ConfigActivity, "设备注册成功", Toast.LENGTH_SHORT).show()
-            SmsForwardService.start(this@ConfigActivity)
+            Toast.makeText(this@ConfigActivity, "设备注册成功，正在启动转发服务", Toast.LENGTH_SHORT).show()
+            showPhoneNumberDialog()
         }
     }
 
@@ -179,7 +165,7 @@ class ConfigActivity : AppCompatActivity() {
         lines.add("手机号: ${preferences.phoneNumber.ifBlank { "未设置" }}")
         lines.add("Device ID: ${preferences.deviceId.ifBlank { "未注册" }}")
         lines.add("API Key: ${maskSecret(preferences.apiKey)}")
-        lines.add("转发服务: ${if (preferences.serviceEnabled) "已开启" else "未开启"}")
+        lines.add("转发服务: ${if (preferences.serviceEnabled) "已开启（自动）" else "未开启"}")
         statusText.text = lines.joinToString(separator = "\n")
     }
 
@@ -207,34 +193,18 @@ class ConfigActivity : AppCompatActivity() {
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setOnClickListener {
                 preferences.phoneNumber = input.text?.toString()?.trim().orEmpty()
-                updateStatusText()
                 dialog.dismiss()
-                startForwardService()
+                pendingAutoStartAfterRegister = true
+                tryAutoStart(showHints = true)
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setOnClickListener {
+                dialog.dismiss()
+                pendingAutoStartAfterRegister = true
+                tryAutoStart(showHints = true)
             }
         }
 
         dialog.show()
-    }
-
-    private fun startForwardService() {
-        if (!preferences.inboxBaselineSet) {
-            SmsInboxScanner.markBaseline(this)
-            preferences.inboxBaselineSet = true
-        }
-
-        preferences.serviceEnabled = true
-        requestBatteryOptimizationExemption()
-        SmsForwardService.start(this)
-
-        if (!NotificationAccessHelper.isEnabled(this)) {
-            Toast.makeText(this, "请在系统设置中开启本 App 的通知监听", Toast.LENGTH_LONG).show()
-            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        } else {
-            NotificationAccessHelper.requestRebind(this)
-        }
-
-        Toast.makeText(this, "转发服务已启动", Toast.LENGTH_SHORT).show()
-        updateStatusText()
     }
 
     private fun maskSecret(value: String): String {
@@ -295,10 +265,13 @@ class ConfigActivity : AppCompatActivity() {
             return
         }
         if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-            Toast.makeText(this, "短信权限已授予，请再次点击启动转发服务", Toast.LENGTH_LONG).show()
+            if (preferences.isConfigured() || pendingAutoStartAfterRegister) {
+                tryAutoStart(showHints = true)
+                Toast.makeText(this, "转发服务已自动启动", Toast.LENGTH_SHORT).show()
+            }
             return
         }
-        Toast.makeText(this, "未授予短信权限，无法转发", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "未授予短信权限，无法自动转发", Toast.LENGTH_LONG).show()
     }
 
     companion object {
