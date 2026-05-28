@@ -61,6 +61,15 @@ class ConfigActivity : AppCompatActivity() {
             registerDevice()
         }
 
+        findViewById<Button>(R.id.retryPendingButton).setOnClickListener {
+            saveInputs()
+            retryPendingMessages()
+        }
+
+        findViewById<Button>(R.id.clearPendingButton).setOnClickListener {
+            clearPendingMessages()
+        }
+
         ensureSmsPermissions()
         tryAutoStart(showHints = false)
     }
@@ -155,10 +164,81 @@ class ConfigActivity : AppCompatActivity() {
             updateStatusText()
             Toast.makeText(this@ConfigActivity, "设备注册成功，正在启动转发服务", Toast.LENGTH_SHORT).show()
             showPhoneNumberDialog()
+            retryPendingMessages(showToast = false)
         }
     }
 
+    private fun retryPendingMessages(showToast: Boolean = true) {
+        if (!preferences.isConfigured()) {
+            if (showToast) {
+                Toast.makeText(this, "请先注册设备", Toast.LENGTH_SHORT).show()
+            }
+            updateStatusText()
+            return
+        }
+
+        CoroutineScope(Dispatchers.Main).launch {
+            val flushResult = withContext(Dispatchers.IO) {
+                SmsForwardHelper.flushPendingMessages(this@ConfigActivity)
+            }
+
+            updateStatusText()
+
+            if (!showToast) {
+                if (flushResult.remaining == 0) {
+                    SmsAutoStartHelper.tryStart(this@ConfigActivity)
+                }
+                return@launch
+            }
+
+            if (flushResult.remaining == 0) {
+                Toast.makeText(this@ConfigActivity, getString(R.string.pending_retry_done), Toast.LENGTH_SHORT).show()
+                SmsAutoStartHelper.tryStart(this@ConfigActivity)
+                return@launch
+            }
+
+            if (flushResult.authInvalid) {
+                Toast.makeText(
+                    this@ConfigActivity,
+                    getString(R.string.pending_retry_auth_invalid),
+                    Toast.LENGTH_LONG,
+                ).show()
+                return@launch
+            }
+
+            Toast.makeText(
+                this@ConfigActivity,
+                getString(
+                    R.string.pending_retry_remaining,
+                    flushResult.remaining,
+                    flushResult.lastError?.take(40) ?: "未知错误",
+                ),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
+    }
+
+    private fun clearPendingMessages() {
+        val pendingCount = PendingMessageStore(this).count()
+        if (pendingCount == 0) {
+            Toast.makeText(this, getString(R.string.pending_retry_done), Toast.LENGTH_SHORT).show()
+            updateStatusText()
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setMessage(getString(R.string.clear_pending_confirm, pendingCount))
+            .setPositiveButton(R.string.phone_dialog_confirm) { _, _ ->
+                PendingMessageStore(this).clearAll()
+                updateStatusText()
+                Toast.makeText(this, getString(R.string.pending_cleared), Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(R.string.phone_dialog_cancel, null)
+            .show()
+    }
+
     private fun updateStatusText() {
+        val pendingCount = PendingMessageStore(this).count()
         val lines = mutableListOf<String>()
         lines.add("服务器: ${preferences.serverUrl.ifBlank { "未设置" }}")
         lines.add("设备名: ${preferences.deviceName.ifBlank { "未设置" }}")
@@ -166,6 +246,7 @@ class ConfigActivity : AppCompatActivity() {
         lines.add("Device ID: ${preferences.deviceId.ifBlank { "未注册" }}")
         lines.add("API Key: ${maskSecret(preferences.apiKey)}")
         lines.add("转发服务: ${if (preferences.serviceEnabled) "已开启（自动）" else "未开启"}")
+        lines.add("待发送队列: ${pendingCount} 条")
         statusText.text = lines.joinToString(separator = "\n")
     }
 

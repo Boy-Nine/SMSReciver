@@ -94,18 +94,29 @@ class SmsForwardService : Service() {
     }
 
     private fun flushPendingMessages() {
-        val pendingCount = PendingMessageStore(this).listAll().size
-        if (pendingCount == 0) {
+        val pendingBefore = PendingMessageStore(this).count()
+        if (pendingBefore == 0) {
             return
         }
 
-        val remaining = SmsForwardHelper.flushPendingMessages(this)
-        if (remaining > 0) {
-            updateNotification("仍有 $remaining 条待重试")
+        val flushResult = SmsForwardHelper.flushPendingMessages(this)
+        if (flushResult.remaining == 0) {
+            updateNotification("待发送队列已清空")
             return
         }
 
-        updateNotification("待发送队列已清空")
+        if (flushResult.authInvalid) {
+            updateNotification("设备凭证失效，请重新注册（待重试 ${flushResult.remaining} 条）")
+            return
+        }
+
+        val errorPreview = flushResult.lastError?.take(30).orEmpty()
+        if (errorPreview.isBlank()) {
+            updateNotification("仍有 ${flushResult.remaining} 条待重试")
+            return
+        }
+
+        updateNotification("仍有 ${flushResult.remaining} 条待重试: $errorPreview")
     }
 
     private fun formatCodeText(verificationCode: String?): String {

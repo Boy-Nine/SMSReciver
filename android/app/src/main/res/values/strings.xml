@@ -6,6 +6,13 @@
     <string name="section_test_send_hint">直接向服务器发送一条模拟短信，用于验证注册信息和上报接口。</string>
     <string name="test_connection">测试连通</string>
     <string name="register_device">注册设备</string>
+    <string name="retry_pending">重试待发送</string>
+    <string name="clear_pending">清空待发送队列</string>
+    <string name="clear_pending_confirm">确定清空 %1$d 条待发送短信吗？清空后无法恢复。</string>
+    <string name="pending_cleared">待发送队列已清空</string>
+    <string name="pending_retry_done">待发送队列已清空</string>
+    <string name="pending_retry_remaining">仍有 %1$d 条待重试：%2$s</string>
+    <string name="pending_retry_auth_invalid">设备凭证失效，请先重新注册</string>
     <string name="start_service">启动转发服务</string>
     <string name="sync_inbox">立即同步收件箱</string>
     <string name="enable_notification_access">开启通知监听（iQOO必开）</string>

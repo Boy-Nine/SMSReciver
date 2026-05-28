@@ -44,6 +44,20 @@ class PendingMessageStore(context: Context) :
         writableDatabase.insert("pending_messages", null, values)
     }
 
+    fun count(): Int {
+        val cursor = readableDatabase.rawQuery("SELECT COUNT(*) FROM pending_messages", null)
+        cursor.use {
+            if (!cursor.moveToFirst()) {
+                return 0
+            }
+            return cursor.getInt(0)
+        }
+    }
+
+    fun clearAll() {
+        writableDatabase.delete("pending_messages", null, null)
+    }
+
     fun listAll(): List<PendingSmsMessage> {
         val cursor = readableDatabase.query(
             "pending_messages",

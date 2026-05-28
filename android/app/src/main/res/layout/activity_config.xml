@@ -81,6 +81,21 @@
                     android:layout_marginTop="8dp"
                     android:text="@string/register_device" />
 
+                <Button
+                    android:id="@+id/retryPendingButton"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/retry_pending" />
+
+                <Button
+                    android:id="@+id/clearPendingButton"
+                    style="@style/Widget.MaterialComponents.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/clear_pending" />
+
                 <TextView
                     android:id="@+id/connectionStatusText"
                     android:layout_width="match_parent"
