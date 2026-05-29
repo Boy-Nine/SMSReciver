@@ -9,6 +9,7 @@
     const nextPageBtn = document.getElementById("next-page-btn");
     const pageIndicator = document.getElementById("page-indicator");
     const paginationInfo = document.getElementById("pagination-info");
+    const headerSubtitle = document.getElementById("header-subtitle");
     const SMS_BASE = (config.basePath || "/sms").replace(/\/$/, "");
     const DEFAULT_PAGE_SIZE = 10;
 
@@ -167,6 +168,115 @@
         });
     }
 
+    function updateTotalSummary() {
+        if (headerSubtitle) {
+            headerSubtitle.textContent = "局域网短信汇总 · 共 " + totalCount + " 条";
+        }
+    }
+
+    function buildDeviceCardHtml(device) {
+        const deviceId = escapeHtml(device.device_id);
+        const deviceName = escapeHtml(device.device_name);
+        const phoneNumber = device.phone_number || "";
+        const phoneAttr = escapeHtml(phoneNumber);
+        const popoverText = phoneNumber ? escapeHtml(phoneNumber) : "未设置手机号";
+        const deviceUrl = escapeHtml(smsPath("/device/" + device.device_id));
+        const lastSeen = device.last_seen_at
+            ? "<span>最近活跃: " + escapeHtml(device.last_seen_at) + "</span>"
+            : '<span class="muted">暂无活跃记录</span>';
+        const preview = device.latest_sms_preview
+            ? '<div class="device-preview">' + escapeHtml(device.latest_sms_preview) + "</div>"
+            : '<div class="device-preview muted">暂无短信</div>';
+
+        return (
+            '<div class="device-card" data-device-id="' +
+            deviceId +
+            '" data-phone="' +
+            phoneAttr +
+            '">' +
+            '<div class="device-phone-popover">' +
+            popoverText +
+            "</div>" +
+            '<div class="device-card-view">' +
+            '<div class="device-card-head">' +
+            '<a class="device-name-link" href="' +
+            deviceUrl +
+            '">' +
+            deviceName +
+            "</a>" +
+            '<div class="device-card-actions">' +
+            '<button class="btn-edit device-edit-btn" type="button" data-device-id="' +
+            deviceId +
+            '">编辑</button>' +
+            '<button class="btn-delete device-delete-btn" type="button" data-device-id="' +
+            deviceId +
+            '" data-device-name="' +
+            deviceName +
+            '">删除</button>' +
+            "</div></div>" +
+            '<a class="device-card-body" href="' +
+            deviceUrl +
+            '">' +
+            '<div class="device-meta">' +
+            lastSeen +
+            "</div>" +
+            preview +
+            "</a></div>" +
+            '<form class="device-card-edit">' +
+            '<label class="device-edit-field"><span>设备名称</span>' +
+            '<input class="device-edit-name" type="text" maxlength="100" value="' +
+            deviceName +
+            '" required></label>' +
+            '<label class="device-edit-field"><span>手机号</span>' +
+            '<input class="device-edit-phone" type="text" maxlength="100" value="' +
+            phoneAttr +
+            '" placeholder="可留空"></label>' +
+            '<div class="device-edit-actions">' +
+            '<button class="btn-save device-save-btn" type="button">保存</button>' +
+            '<button class="btn-cancel device-cancel-btn" type="button">取消</button>' +
+            "</div></form></div>"
+        );
+    }
+
+    function renderDeviceGrid(devices) {
+        if (!deviceGrid) {
+            return;
+        }
+
+        if (!devices.length) {
+            deviceGrid.innerHTML = '<div class="empty">暂无设备，请先在 Android 端注册。</div>';
+            return;
+        }
+
+        deviceGrid.innerHTML = devices.map(buildDeviceCardHtml).join("");
+    }
+
+    async function refreshDevices() {
+        if (!deviceGrid || config.deviceId) {
+            return;
+        }
+
+        if (deviceGrid.querySelector(".device-card.is-editing")) {
+            return;
+        }
+
+        const response = await fetch(smsPath("/api/devices"), {
+            credentials: "same-origin",
+        });
+
+        if (response.status === 401) {
+            redirectToLogin();
+            return;
+        }
+
+        if (!response.ok) {
+            return;
+        }
+
+        const devices = await response.json();
+        renderDeviceGrid(devices || []);
+    }
+
     async function refreshMessages() {
         if (!tableBody) {
             return;
@@ -189,10 +299,21 @@
         totalCount = data.total || 0;
         renderRows(data.items || []);
         renderPagination();
+        updateTotalSummary();
+    }
+
+    async function refreshDashboard() {
+        await Promise.all([refreshMessages(), refreshDevices()]);
     }
 
     if (refreshBtn) {
-        refreshBtn.addEventListener("click", refreshMessages);
+        refreshBtn.addEventListener("click", function () {
+            if (deviceGrid && !config.deviceId) {
+                refreshDashboard();
+                return;
+            }
+            refreshMessages();
+        });
     }
 
     if (pageSizeSelect) {
@@ -281,7 +402,7 @@
                 deviceGrid.innerHTML = '<div class="empty">暂无设备，请先在 Android 端注册。</div>';
             }
 
-            refreshMessages();
+            refreshDashboard();
         } catch (error) {
             window.alert("删除失败，请检查网络后重试");
             button.disabled = false;
@@ -441,7 +562,7 @@
             const device = await response.json();
             updateDeviceCardView(card, device);
             card.classList.remove("is-editing");
-            refreshMessages();
+            refreshDashboard();
         } catch (error) {
             window.alert("保存失败，请检查网络后重试");
         } finally {
@@ -469,6 +590,12 @@
     }
 
     if (config.autoRefreshMs) {
-        setInterval(refreshMessages, config.autoRefreshMs);
+        setInterval(function () {
+            if (deviceGrid && !config.deviceId) {
+                refreshDashboard();
+                return;
+            }
+            refreshMessages();
+        }, config.autoRefreshMs);
     }
 })();
